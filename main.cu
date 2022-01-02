@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
 
 	inst_t *d_insts;
 	cudaMalloc(&d_insts, inst_num * sizeof(inst_t));
-	cudaMemcpy(d_insts, insts, inst_num, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_insts, insts, inst_num * sizeof(inst_t), cudaMemcpyHostToDevice);
 
 	size_t threads_per_block = 256;
 	size_t num_blocks = 4096;
@@ -40,7 +40,14 @@ int main(int argc, char **argv) {
 	get_max_input<<<num_blocks, threads_per_block>>>(d_insts, inst_num, d_outputs);
 
 	i64 *outputs = (i64 *) calloc(total_threads, sizeof(i64));
-	cudaMemcpy(outputs, d_outputs, total_threads, cudaMemcpyDeviceToHost);
+	cudaMemcpy(outputs, d_outputs, total_threads * sizeof(i64), cudaMemcpyDeviceToHost);
+
+	i64 maximum = 0;
+	for(size_t i = 0; i < total_threads; i++) {
+		maximum = (outputs[i] > maximum) ? outputs[i] : maximum;
+	}
+
+	printf("Finished! maximum = %lld\n", maximum);
 
 	free(outputs);
 	cudaFree(d_outputs);
@@ -63,7 +70,7 @@ __global__ void get_max_input(const inst_t *insts, size_t len, i64 *outputs) {
 	outputs[base] = 0;
 }
 
-__device__ int simulate(const inst_t *insts, size_t len, i64 num) {
+__device__ int simulate(const inst_t *insts, size_t len, i64 n) {
 	return 1; // TODO
 }
 
