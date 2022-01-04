@@ -70,8 +70,55 @@ __global__ void get_max_input(const inst_t *insts, size_t len, i64 *outputs) {
 	outputs[base] = 0;
 }
 
+__device__ void get_digits(i64 n, char(*output)[14]) {
+	for(size_t i = 0; i < 14; i++) {
+		(*output)[14 - i - 1] = (n % 9) + 1;
+		n /= 9;
+	}
+}
+
+__device__ i64 calculate(opcode_t opcode, i64 prim, i64 aux) {
+	switch(opcode) {
+	case addop:
+		return prim + aux;
+	case mulop:
+		return prim * aux;
+	case divop:
+		return prim / aux;
+	case modop:
+		return prim % aux;
+	case eqlop:
+		return (prim == aux) ? 1 : 0;
+	default:
+		printf("bad\n");
+	}
+}
+
 __device__ int simulate(const inst_t *insts, size_t len, i64 n) {
-	return 1; // TODO
+	i64 registers[4] = { 0, 0, 0, 0 };
+	char digits[14];
+	get_digits(n, &digits);
+	size_t digit = 0;
+
+	for(size_t i = 0; i < len; i++) {
+		inst_t inst = insts[i];
+		i64 aux;
+		if(inst.opcode == inpop) {
+			registers[inst.reg1] = digits[digit++];
+			continue;
+		}
+
+		if(inst.regnum == reg) {
+			aux = registers[inst.reg2];
+		} else {
+			aux = inst.num2;
+		}
+
+		i64 prim = registers[inst.reg1];
+		registers[inst.reg1] = calculate(inst.opcode, prim, aux);
+	}
+
+	return registers[zreg];
 }
 
 static opcode_t parse_opcode(const char *line) {
@@ -114,12 +161,14 @@ static inst_t parse_inst(const char *line) {
 	inst.opcode = parse_opcode(line);
 	inst.reg1 = parse_reg(line[4]);
 
-	if(isalpha(line[6])) {
-		inst.reg2 = parse_reg(line[6]);
-		inst.regnum = reg;
-	} else {
-		inst.num2 = atoi(&line[6]);
-		inst.regnum = num;
+	if(inst.opcode != inpop) {
+		if(isalpha(line[6])) {
+			inst.reg2 = parse_reg(line[6]);
+			inst.regnum = reg;
+		} else {
+			inst.num2 = atoi(&line[6]);
+			inst.regnum = num;
+		}
 	}
 
 	return inst;
